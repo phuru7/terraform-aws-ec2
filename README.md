@@ -1,4 +1,4 @@
-# terraform-aws-ec2-compute
+# terraform-aws-ec2
 
 Módulo de Terraform para crear instancias EC2 con configuración flexible, volúmenes EBS adicionales, IPs elásticas y gestión de key pairs.
 
