@@ -2,6 +2,7 @@ locals {
   name_pattern = "${var.environment}-${var.company_name}-${var.project_name}"
 }
 
+
 data "aws_ami" "this" {
   count       = var.ami_id == null ? 1 : 0
   most_recent = true
