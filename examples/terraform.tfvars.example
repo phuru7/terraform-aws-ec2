@@ -1,0 +1,43 @@
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Project Configuration
+project_name = "demo-app"
+environment  = "dev"
+company_name = "acme"
+
+# Instance Configuration
+instance_count = 1
+instance_type  = "t3.micro"
+
+# Key Pair - Option 1: Use existing key
+key_pair_config = {
+  create_new        = false
+  existing_key_name = "my-existing-key"
+}
+
+# Key Pair - Option 2: Create new key (uncomment and update public_key)
+# key_pair_config = {
+#   create_new = true
+#   public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... your-public-key"
+# }
+
+# Network
+associate_public_ip_address = true
+
+# Storage
+root_volume = {
+  type                  = "gp3"
+  size                  = 20
+  encrypted             = true
+  delete_on_termination = true
+}
+
+# Tagging
+owner = "DevOps-Team"
+
+tags = {
+  Purpose = "Demo"
+  Team    = "DevOps"
+  Cost    = "Development"
+}
