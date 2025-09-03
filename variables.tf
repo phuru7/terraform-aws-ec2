@@ -77,49 +77,41 @@ locals {
   env_config = local.environment_defaults[var.environment]
 }
 
-
 #################################
-# aws_ami variables
+# aws_ami variables with optional()
 #################################
-variable "ami_id" {
-  description = "AMI ID to use for instances. If null, will use latest AMI based on filters"
-  type        = string
-  default     = null
-}
-
-variable "ami_owners" {
-  description = "List of AMI owners to limit search. Used when ami_id is null"
-  type        = list(string)
-  default     = ["099720109477"] # Canonical (Ubuntu)
-}
-
-variable "ami_filters" {
-  description = "List of filters to find AMI. Used when ami_id is null"
-  type = list(object({
-    name   = string
-    values = list(string)
-  }))
-  default = [
-    {
-      name   = "name"
-      values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
-    },
-    {
-      name   = "state"
-      values = ["available"]
-    }
-  ]
+variable "ami_config" {
+  description = "AMI configuration with optional attributes"
+  type = object({
+    ami_id = optional(string)
+    owners = optional(list(string), ["099720109477"]) # Canonical (Ubuntu)
+    filters = optional(list(object({
+      name   = string
+      values = list(string)
+      })), [
+      {
+        name   = "name"
+        values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
+      },
+      {
+        name   = "state"
+        values = ["available"]
+      }
+    ])
+  })
+  default = {}
 }
 
 #################################
-# Key Pair variables
+# Key Pair con optional()
 #################################
 variable "key_pair_config" {
-  description = "Key pair configuration"
+  description = "Key pair configuration with optional attributes"
   type = object({
     create_new        = optional(bool, false)
     public_key        = optional(string)
     existing_key_name = optional(string)
+    key_name_suffix   = optional(string, "key")
   })
   default = {}
 
@@ -133,69 +125,75 @@ variable "key_pair_config" {
 }
 
 #################################
-# aws_eip variables
+# Network configuration with optional()
 #################################
-variable "eip_count" {
-  description = "Number of Elastic IPs to create (0 to instance_count). Set to 0 for no EIPs"
-  type        = number
-  default     = 0
+variable "network_config" {
+  description = "Network configuration with optional attributes"
+  type = object({
+    subnet_ids                  = list(string)
+    security_group_ids          = list(string)
+    associate_public_ip_address = optional(bool, false)
+    eip_count                   = optional(number, 0)
+  })
 
   validation {
-    condition     = var.eip_count >= 0 && var.eip_count <= 100
+    condition     = length(var.network_config.subnet_ids) > 0
+    error_message = "At least one subnet ID must be provided."
+  }
+
+  validation {
+    condition     = length(var.network_config.security_group_ids) > 0
+    error_message = "At least one security group ID must be provided."
+  }
+
+  validation {
+    condition     = var.network_config.eip_count >= 0 && var.network_config.eip_count <= 100
     error_message = "EIP count must be between 0 and 100."
   }
 }
 
-variable "associate_public_ip_address" {
-  description = "Associate public IP address to instances"
-  type        = bool
-  default     = false
-}
 
 #################################
-# instance variables
+# Instance configuration with robust validations
 #################################
+variable "instance_config" {
+  description = "EC2 instance configuration with advanced optional attributes"
+  type = object({
+    instance_count                       = optional(number)
+    instance_type                        = optional(string)
+    monitoring                           = optional(bool)
+    disable_api_termination              = optional(bool)
+    disable_api_stop                     = optional(bool)
+    instance_initiated_shutdown_behavior = optional(string, "stop")
+    iam_instance_profile_name            = optional(string)
+    user_data                            = optional(string)
+    user_data_replace_on_change          = optional(bool, false)
+  })
+  default = {}
 
-variable "instance_count" {
-  description = "Number of EC2 instances to create"
-  type        = number
+  # Robust validation for instance_type
+  validation {
+    condition     = var.instance_config.instance_type == null || can(regex("^[a-z][0-9][a-z]?(\\.[a-z0-9]+)$", var.instance_config.instance_type))
+    error_message = "Instance type must be a valid EC2 instance type format (e.g., t3.micro, m5.large, c5n.xlarge)."
+  }
+
+  # Validation for allowed instance families
+  validation {
+    condition     = var.instance_config.instance_type == null || can(regex("^(t2|t3|t3a|t4g|m5|m5a|m5n|m6i|m6a|m7i|c5|c5a|c5n|c6i|c6a|c7i|r5|r5a|r5n|r6i|r6a|r7i|x1|x1e|z1d|i3|i4i|d3|d3en|h1)\\.", var.instance_config.instance_type))
+    error_message = "Instance type must be from supported families: t2, t3, t3a, t4g, m5, m5a, m5n, m6i, m6a, m7i, c5, c5a, c5n, c6i, c6a, c7i, r5, r5a, r5n, r6i, r6a, r7i, x1, x1e, z1d, i3, i4i, d3, d3en, h1."
+  }
 
   validation {
-    condition     = var.instance_count > 0 && var.instance_count <= 100
+    condition     = var.instance_config.instance_count == null || (var.instance_config.instance_count > 0 && var.instance_config.instance_count <= 100)
     error_message = "Instance count must be between 1 and 100."
   }
-}
-
-variable "instance_type" {
-  description = "EC2 instance type"
-  type        = string
-  default     = "t3.micro"
 
   validation {
-    condition     = can(regex("^[a-z][0-9][a-z]?\\.[a-z0-9]+$", var.instance_type))
-    error_message = "Instance type must be a valid EC2 instance type (e.g., t3.micro, m5.large)."
+    condition     = contains(["stop", "terminate"], var.instance_config.instance_initiated_shutdown_behavior)
+    error_message = "Instance initiated shutdown behavior must be either 'stop' or 'terminate'."
   }
 }
 
-variable "subnet_ids" {
-  description = "List of subnet IDs where instances will be created. Instances will be distributed across subnets"
-  type        = list(string)
-
-  validation {
-    condition     = length(var.subnet_ids) > 0
-    error_message = "At least one subnet ID must be provided."
-  }
-}
-
-variable "security_group_ids" {
-  description = "List of security group IDs to assign to the instances"
-  type        = list(string)
-
-  validation {
-    condition     = length(var.security_group_ids) > 0
-    error_message = "At least one security group ID must be provided."
-  }
-}
 
 variable "root_volume" {
   description = "Root volume configuration"
