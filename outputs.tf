@@ -15,10 +15,10 @@ output "key_pair_info" {
 output "eip_info" {
   description = "Elastic IP information"
   value = {
-    public_ips = [for eip in aws_eip.this : eip.public_ip]
-    dns_names  = [for eip in aws_eip.this : eip.public_dns]
+    public_ips   = [for eip in aws_eip.this : eip.public_ip]
+    dns_names    = [for eip in aws_eip.this : eip.public_dns]
     associations = [for eip in aws_eip.this : eip.association_id]
-    count = length(aws_eip.this)
+    count        = length(aws_eip.this)
   }
 }
 
@@ -34,7 +34,7 @@ output "instances_info" {
         arn               = aws_instance.this[i].arn
         instance_type     = aws_instance.this[i].instance_type
         availability_zone = aws_instance.this[i].availability_zone
-      
+
         # Network
         private_ip = aws_instance.this[i].private_ip
         public_ip  = aws_instance.this[i].public_ip
@@ -43,7 +43,7 @@ output "instances_info" {
         # Storage
         root_volume_id    = aws_instance.this[i].root_block_device[0].volume_id
         root_volume_sizes = aws_instance.this[i].root_block_device[0].volume_size
-        ebs_volume_ids = [for vol in aws_ebs_volume.this : vol.id]
+        ebs_volume_ids    = [for vol in aws_ebs_volume.this : vol.id]
       }
     ]
   }
@@ -52,11 +52,11 @@ output "instances_info" {
 output "network_info" {
   description = "Complete network information for all instances"
   value = {
-    private_ips            = aws_instance.this[*].private_ip
-    public_ips             = aws_instance.this[*].public_ip
-    private_dns            = aws_instance.this[*].private_dns
-    public_dns             = aws_instance.this[*].public_dns
-    subnet_ids             = aws_instance.this[*].subnet_id
+    private_ips = aws_instance.this[*].private_ip
+    public_ips  = aws_instance.this[*].public_ip
+    private_dns = aws_instance.this[*].private_dns
+    public_dns  = aws_instance.this[*].public_dns
+    subnet_ids  = aws_instance.this[*].subnet_id
   }
 }
 

@@ -100,14 +100,14 @@ resource "aws_instance" "this" {
     }
   )
 
-  monitoring                            = var.monitoring
-  disable_api_termination               = var.disable_api_termination
-  disable_api_stop                      = var.disable_api_stop
-  instance_initiated_shutdown_behavior  = var.instance_initiated_shutdown_behavior
-  
-  iam_instance_profile                  = var.iam_instance_profile_name
-  user_data                             = var.user_data
-  user_data_replace_on_change           = var.user_data_replace_on_change
+  monitoring                           = var.monitoring
+  disable_api_termination              = var.disable_api_termination
+  disable_api_stop                     = var.disable_api_stop
+  instance_initiated_shutdown_behavior = var.instance_initiated_shutdown_behavior
+
+  iam_instance_profile        = var.iam_instance_profile_name
+  user_data                   = var.user_data
+  user_data_replace_on_change = var.user_data_replace_on_change
 
   tags = merge(
     var.tags,

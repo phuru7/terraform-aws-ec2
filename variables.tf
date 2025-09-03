@@ -1,6 +1,31 @@
 #################################
 # Locals variables
 #################################
+variable "environment" {
+  description = "Environment name (dev, qa, staging, prod.)"
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.environment))
+    error_message = "Environment must contain only lowercase letters, numbers, and hyphens."
+  }
+
+  validation {
+    condition     = contains(["dev", "qa", "staging", "prod"], var.environment)
+    error_message = "Environment must be one of: dev, qa, staging, prod."
+  }
+}
+
+variable "company_name" {
+  description = "Name of the company (used in naming pattern)"
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.company_name))
+    error_message = "Company name must contain only lowercase letters, numbers, and hyphens."
+  }
+}
+
 variable "project_name" {
   description = "Name of the project (used in naming pattern)"
   type        = string
@@ -11,25 +36,47 @@ variable "project_name" {
   }
 }
 
-variable "environment" {
-  description = "Environment name (dev, qa, prod, etc.)"
-  type        = string
 
-  validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.environment))
-    error_message = "Environment must contain only lowercase letters, numbers, and hyphens."
+#################################
+# Environment configurations using locals
+#################################
+locals {
+  # Scalable configurations per environment
+  environment_defaults = {
+    dev = {
+      instance_type          = "t3.micro"
+      monitoring             = false
+      termination_protection = false
+      root_volume_size       = 30
+      instance_count         = 1
+    }
+    qa = {
+      instance_type          = "t3.small"
+      monitoring             = true
+      termination_protection = false
+      root_volume_size       = 40
+      instance_count         = 2
+    }
+    staging = {
+      instance_type          = "t3.medium"
+      monitoring             = true
+      termination_protection = true
+      root_volume_size       = 50
+      instance_count         = 2
+    }
+    prod = {
+      instance_type          = "t3.large"
+      monitoring             = true
+      termination_protection = true
+      root_volume_size       = 100
+      instance_count         = 3
+    }
   }
+
+  # Apply defaults per environment
+  env_config = local.environment_defaults[var.environment]
 }
 
-variable "company_name" {
-  description = "Name of the company (used in naming pattern)"
-  type        = string
-
-  validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.company_name))
-    error_message = "Project name must contain only lowercase letters, numbers, and hyphens."
-  }
-}
 
 #################################
 # aws_ami variables
@@ -75,7 +122,7 @@ variable "key_pair_config" {
     existing_key_name = optional(string)
   })
   default = {}
-  
+
   validation {
     condition = (
       (var.key_pair_config.create_new && var.key_pair_config.public_key != null) ||
@@ -178,7 +225,7 @@ variable "ebs_block_devices" {
   description = "Additional EBS block devices to attach to instances"
   type = list(object({
     device_name           = string
-    custom_name           = string 
+    custom_name           = string
     volume_type           = string
     volume_size           = number
     iops                  = optional(number)
