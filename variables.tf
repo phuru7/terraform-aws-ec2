@@ -103,7 +103,7 @@ variable "ami_config" {
 }
 
 #################################
-# Key Pair con optional()
+# Key Pair with optional()
 #################################
 variable "key_pair_config" {
   description = "Key pair configuration with optional attributes"
