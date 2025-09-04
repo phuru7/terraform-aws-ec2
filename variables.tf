@@ -194,12 +194,14 @@ variable "instance_config" {
   }
 }
 
-
+#################################
+# Root volume with improved optional()
+#################################
 variable "root_volume" {
-  description = "Root volume configuration"
+  description = "Root volume configuration with optional attributes and intelligent defaults"
   type = object({
     type                  = optional(string, "gp3")
-    size                  = optional(number, 20)
+    size                  = optional(number)
     iops                  = optional(number)
     throughput            = optional(number)
     encrypted             = optional(bool, true)
@@ -209,32 +211,116 @@ variable "root_volume" {
   default = {}
 
   validation {
-    condition     = contains(["gp2", "gp3", "io1", "io2"], var.root_volume.type)
-    error_message = "Root volume type must be one of: gp2, gp3, io1, io2."
+    condition     = contains(["gp2", "gp3", "io1", "io2", "sc1", "st1"], var.root_volume.type)
+    error_message = "Root volume type must be one of: gp2, gp3, io1, io2, sc1, st1."
   }
 
   validation {
-    condition     = var.root_volume.size >= 8 && var.root_volume.size <= 50
-    error_message = "Root volume size must be between 8 and 50 GB."
+    condition     = var.root_volume.size == null || (var.root_volume.size >= 8 && var.root_volume.size <= 16384)
+    error_message = "Root volume size must be between 8 and 16384 GB."
+  }
+
+  # IOPS validation based on volume type
+  validation {
+    condition = (
+      var.root_volume.iops == null ||
+      (var.root_volume.type == "gp3" && var.root_volume.iops >= 3000 && var.root_volume.iops <= 16000) ||
+      (var.root_volume.type == "io1" && var.root_volume.iops >= 100 && var.root_volume.iops <= 64000) ||
+      (var.root_volume.type == "io2" && var.root_volume.iops >= 100 && var.root_volume.iops <= 256000) ||
+      contains(["gp2", "sc1", "st1"], var.root_volume.type)
+    )
+    error_message = "IOPS must be compatible with volume type: gp3 (3000-16000), io1 (100-64000), io2 (100-256000)."
+  }
+
+  # Throughput validation for gp3
+  validation {
+    condition = (
+      var.root_volume.throughput == null ||
+      (var.root_volume.type == "gp3" && var.root_volume.throughput >= 125 && var.root_volume.throughput <= 1000) ||
+      var.root_volume.type != "gp3"
+    )
+    error_message = "Throughput is only valid for gp3 volumes and must be between 125 and 1000 MB/s."
   }
 }
 
-variable "ebs_block_devices" {
-  description = "Additional EBS block devices to attach to instances"
-  type = list(object({
-    device_name           = string
-    custom_name           = string
-    volume_type           = string
-    volume_size           = number
+#################################
+# EBS optimized with map(object())
+#################################
+variable "ebs_volumes" {
+  description = "Map of EBS volumes to create with flexible configuration"
+  type = map(object({
+    # Basic configuration
+    device_name = string
+    volume_type = optional(string, "gp3")
+    volume_size = number
+
+    # Advanced optional configuration
     iops                  = optional(number)
     throughput            = optional(number)
     encrypted             = optional(bool, true)
     kms_key_id            = optional(string)
     snapshot_id           = optional(string)
     delete_on_termination = optional(bool, true)
-    tags                  = optional(map(string), {})
+
+    # Multi-attach and other options
+    multi_attach_enabled = optional(bool, false)
+    availability_zone    = optional(string) # If specified, it's used; if not, taken from instance
+
+    # Attachment configuration  
+    instance_indices = optional(list(number), [0]) # Which instances to attach (by index)
+
+    # Volume-specific tags
+    tags = optional(map(string), {})
   }))
-  default = []
+  default = {}
+
+  # Robust validations for each volume
+  validation {
+    condition = alltrue([
+      for vol_name, vol in var.ebs_volumes : contains(["gp2", "gp3", "io1", "io2", "sc1", "st1"], vol.volume_type)
+    ])
+    error_message = "All EBS volume types must be one of: gp2, gp3, io1, io2, sc1, st1."
+  }
+
+  validation {
+    condition = alltrue([
+      for vol_name, vol in var.ebs_volumes : vol.volume_size >= 1 && vol.volume_size <= 16384
+    ])
+    error_message = "All EBS volume sizes must be between 1 and 16384 GB."
+  }
+
+  validation {
+    condition = alltrue([
+      for vol_name, vol in var.ebs_volumes : can(regex("^/dev/[a-z]+[0-9]?$", vol.device_name))
+    ])
+    error_message = "All EBS device names must follow the pattern /dev/xxx or /dev/xxx# (e.g., /dev/sdf, /dev/xvdf1)."
+  }
+
+  # IOPS validation by volume type
+  validation {
+    condition = alltrue([
+      for vol_name, vol in var.ebs_volumes : (
+        vol.iops == null ||
+        (vol.volume_type == "gp3" && vol.iops >= 3000 && vol.iops <= 16000) ||
+        (vol.volume_type == "io1" && vol.iops >= 100 && vol.iops <= 64000) ||
+        (vol.volume_type == "io2" && vol.iops >= 100 && vol.iops <= 256000) ||
+        contains(["gp2", "sc1", "st1"], vol.volume_type)
+      )
+    ])
+    error_message = "IOPS must be compatible with volume type for all volumes: gp3 (3000-16000), io1 (100-64000), io2 (100-256000)."
+  }
+
+  # Throughput validation for gp3
+  validation {
+    condition = alltrue([
+      for vol_name, vol in var.ebs_volumes : (
+        vol.throughput == null ||
+        (vol.volume_type == "gp3" && vol.throughput >= 125 && vol.throughput <= 1000) ||
+        vol.volume_type != "gp3"
+      )
+    ])
+    error_message = "Throughput is only valid for gp3 volumes and must be between 125 and 1000 MB/s for all volumes."
+  }
 }
 
 variable "monitoring" {
