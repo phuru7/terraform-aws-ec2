@@ -3,13 +3,16 @@ locals {
 }
 
 
+#################################
+# Data Sources
+#################################
 data "aws_ami" "this" {
-  count       = var.ami_id == null ? 1 : 0
+  count       = var.ami_config.ami_id == null ? 1 : 0
   most_recent = true
-  owners      = var.ami_owners
+  owners      = var.ami_config.owners
 
   dynamic "filter" {
-    for_each = var.ami_filters
+    for_each = var.ami_config.filters
     content {
       name   = filter.value.name
       values = filter.value.values
@@ -17,19 +20,27 @@ data "aws_ami" "this" {
   }
 }
 
+#################################
+# Key Pair
+#################################
 resource "aws_key_pair" "this" {
   count      = var.key_pair_config.create_new ? 1 : 0
-  key_name   = "${local.name_pattern}-key"
+  key_name   = "${local.name_pattern}-${var.key_pair_config.key_name_suffix}"
   public_key = var.key_pair_config.public_key
 
   tags = merge(
     var.tags,
     var.additional_tags.key_pairs,
     {
-      Name = "${local.name_pattern}-key"
+      Name        = "${local.name_pattern}-${var.key_pair_config.key_name_suffix}"
+      Environment = var.environment
+      Company     = var.company_name
+      Project     = var.project_name
     }
   )
 }
+
+
 
 resource "aws_eip" "this" {
   count    = min(var.eip_count, var.instance_count)

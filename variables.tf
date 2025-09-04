@@ -36,7 +36,6 @@ variable "project_name" {
   }
 }
 
-
 #################################
 # Environment configurations using locals
 #################################
@@ -151,7 +150,6 @@ variable "network_config" {
     error_message = "EIP count must be between 0 and 100."
   }
 }
-
 
 #################################
 # Instance configuration with robust validations
@@ -342,7 +340,6 @@ variable "additional_tags" {
     eips        = optional(map(string), {})
   })
 }
-
 
 #################################
 # Tags with improved optional structure
