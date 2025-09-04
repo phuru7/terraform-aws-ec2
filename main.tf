@@ -1,7 +1,54 @@
 locals {
   name_pattern = "${var.environment}-${var.company_name}-${var.project_name}"
+  
+  # Resolved configuration with environment defaults
+  resolved_instance_count = coalesce(
+    var.instance_config.instance_count,
+    local.env_config.instance_count
+  )
+  
+  resolved_instance_type = coalesce(
+    var.instance_config.instance_type,
+    local.env_config.instance_type
+  )
+  
+  resolved_monitoring = coalesce(
+    var.instance_config.monitoring,
+    local.env_config.monitoring
+  )
+  
+  resolved_disable_api_termination = coalesce(
+    var.instance_config.disable_api_termination,
+    local.env_config.termination_protection
+  )
+  
+  resolved_disable_api_stop = coalesce(
+    var.instance_config.disable_api_stop,
+    false
+  )
+  
+  resolved_shutdown_behavior = coalesce(
+    var.instance_config.instance_initiated_shutdown_behavior,
+    "stop"
+  )
+  
+  resolved_root_volume_size = coalesce(
+    var.root_volume.size,
+    local.env_config.root_volume_size
+  )
+  
+  # Lista expandida de volúmenes EBS por instancia
+  ebs_volume_attachments = flatten([
+    for vol_name, vol_config in var.ebs_volumes : [
+      for instance_idx in vol_config.instance_indices : {
+        volume_name    = vol_name
+        instance_index = instance_idx
+        device_name    = vol_config.device_name
+        volume_config  = vol_config
+      }
+    ]
+  ])
 }
-
 
 #################################
 # Data Sources
