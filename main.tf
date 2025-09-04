@@ -40,6 +40,56 @@ resource "aws_key_pair" "this" {
   )
 }
 
+#################################
+# EBS 
+#################################
+resource "aws_ebs_volume" "this" {
+  for_each = {
+    for attachment in local.ebs_volume_attachments : 
+    "${attachment.volume_name}-${attachment.instance_index}" => attachment
+  }
+
+  availability_zone = coalesce(
+    each.value.volume_config.availability_zone,
+    aws_instance.this[each.value.instance_index].availability_zone
+  )
+  
+  size              = each.value.volume_config.volume_size
+  type              = each.value.volume_config.volume_type
+  iops              = each.value.volume_config.iops
+  throughput        = each.value.volume_config.throughput
+  encrypted         = each.value.volume_config.encrypted
+  kms_key_id        = each.value.volume_config.kms_key_id
+  snapshot_id       = each.value.volume_config.snapshot_id
+  multi_attach_enabled = each.value.volume_config.multi_attach_enabled
+
+  tags = merge(
+    var.tags,
+    var.additional_tags.volumes,
+    each.value.volume_config.tags,
+    {
+      Name        = "${local.name_pattern}-${each.value.instance_index + 1}-${each.value.volume_name}"
+      Environment = var.environment
+      Company     = var.company_name
+      Project     = var.project_name
+      VolumeType  = each.value.volume_config.volume_type
+      Instance    = "${local.name_pattern}-${each.value.instance_index + 1}"
+    }
+  )
+}
+
+resource "aws_volume_attachment" "this" {
+  for_each = {
+    for attachment in local.ebs_volume_attachments : 
+    "${attachment.volume_name}-${attachment.instance_index}" => attachment
+  }
+
+  device_name = each.value.device_name
+  volume_id   = aws_ebs_volume.this[each.key].id
+  instance_id = aws_instance.this[each.value.instance_index].id
+}
+
+
 
 
 resource "aws_eip" "this" {
@@ -57,32 +107,7 @@ resource "aws_eip" "this" {
   depends_on = [aws_instance.this]
 }
 
-resource "aws_ebs_volume" "this" {
-  count             = length(var.ebs_block_devices)
-  availability_zone = aws_instance.this[count.index].availability_zone
-  size              = var.ebs_block_devices[count.index].volume_size
-  type              = var.ebs_block_devices[count.index].volume_type
-  iops              = var.ebs_block_devices[count.index].iops
-  throughput        = var.ebs_block_devices[count.index].throughput
-  encrypted         = var.ebs_block_devices[count.index].encrypted
-  kms_key_id        = var.ebs_block_devices[count.index].kms_key_id
-  snapshot_id       = var.ebs_block_devices[count.index].snapshot_id
 
-  tags = merge(
-    var.tags,
-    var.ebs_block_devices[count.index].tags,
-    {
-      Name = "${local.name_pattern}-${count.index + 1}-${var.ebs_block_devices[count.index].custom_name}-disk"
-    }
-  )
-}
-
-resource "aws_volume_attachment" "this" {
-  count       = length(var.ebs_block_devices)
-  device_name = var.ebs_block_devices[count.index].device_name
-  volume_id   = aws_ebs_volume.this[count.index].id
-  instance_id = aws_instance.this[count.index].id
-}
 
 resource "aws_instance" "this" {
   count                       = var.instance_count
