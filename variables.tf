@@ -323,53 +323,6 @@ variable "ebs_volumes" {
   }
 }
 
-variable "monitoring" {
-  description = "Enable detailed monitoring for instances"
-  type        = bool
-  default     = false
-}
-
-variable "disable_api_termination" {
-  description = "Enable EC2 instance termination protection"
-  type        = bool
-  default     = false
-}
-
-variable "disable_api_stop" {
-  description = "Enable EC2 instance stop protection"
-  type        = bool
-  default     = false
-}
-
-variable "instance_initiated_shutdown_behavior" {
-  description = "Shutdown behavior for the instance"
-  type        = string
-  default     = "stop"
-
-  validation {
-    condition     = contains(["stop", "terminate"], var.instance_initiated_shutdown_behavior)
-    error_message = "Instance initiated shutdown behavior must be either 'stop' or 'terminate'."
-  }
-}
-
-variable "iam_instance_profile_name" {
-  description = "Name of IAM instance profile to attach to instances"
-  type        = string
-  default     = null
-}
-
-variable "user_data" {
-  description = "User data script for instances (will auto-detect if base64 encoded)"
-  type        = string
-  default     = null
-}
-
-variable "user_data_replace_on_change" {
-  description = "Replace instance if user data changes"
-  type        = bool
-  default     = false
-}
-
 #################################
 # Variables de Tags
 #################################
@@ -388,4 +341,33 @@ variable "additional_tags" {
     key_pairs   = optional(map(string), {})
     eips        = optional(map(string), {})
   })
+}
+
+
+#################################
+# Tags with improved optional structure
+#################################
+variable "tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+  
+  validation {
+    condition = alltrue([
+      for key, value in var.tags : can(regex("^[a-zA-Z0-9_.:/=+\\-@]+$", key))
+    ])
+    error_message = "All tag keys must contain only alphanumeric characters, spaces, and the following characters: _ . : / = + - @"
+  }
+}
+
+variable "additional_tags" {
+  description = "Additional tags for specific resource types with optional structure"
+  type = object({
+    instances   = optional(map(string), {})
+    volumes     = optional(map(string), {})
+    root_volume = optional(map(string), {})
+    key_pairs   = optional(map(string), {})
+    eips        = optional(map(string), {})
+  })
+  default = {}
 }
