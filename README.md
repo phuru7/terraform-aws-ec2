@@ -284,27 +284,6 @@ terraform apply -var-file="environments/prod.tfvars"
 terraform destroy -var-file="environments/prod.tfvars"
 ```
 
-## Tool Integration
-
-### Ansible
-```yaml
-# inventory.yml
-all:
-  hosts:
-    {% for instance in terraform_output.connection_info %}
-    {{ instance.name }}:
-      ansible_host: {{ instance.host }}
-      ansible_user: {{ instance.connection.user }}
-      ansible_ssh_private_key_file: ~/.ssh/{{ instance.connection.key_name }}.pem
-    {% endfor %}
-```
-
-### AWS Systems Manager
-```bash
-# Connect using Session Manager
-aws ssm start-session --target {{ instance_id }}
-```
-
 ## Best Practices
 
 1. **Use tfvars files per environment**
