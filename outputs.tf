@@ -27,7 +27,7 @@ output "eip_info" {
     dns_names      = [for eip in aws_eip.this : eip.public_dns]
     associations   = [for eip in aws_eip.this : eip.association_id]
     allocation_ids = [for eip in aws_eip.this : eip.allocation_id]
-    # Mapeo detallado de EIP por instancia
+
     eip_mappings = [
       for i in range(length(aws_eip.this)) : {
         instance_id   = aws_instance.this[i].id
@@ -41,7 +41,7 @@ output "eip_info" {
 }
 
 #################################
-# Instances Information - Enhanced
+# Instances Information
 #################################
 output "instances_info" {
   description = "Complete summary of all instances with essential information"
@@ -110,7 +110,7 @@ output "instances_info" {
 }
 
 #################################
-# Network Information - Enhanced
+# Network Information 
 #################################
 output "network_info" {
   description = "Complete network information for all instances"
@@ -136,20 +136,92 @@ output "network_info" {
 }
 
 
+#################################
+# EBS Volumes Information
+#################################
+output "ebs_volumes_info" {
+  description = "Detailed information about all EBS volumes"
+  value = {
+    count = length(aws_ebs_volume.this)
+    volumes = {
+      for vol_key, vol in aws_ebs_volume.this : vol_key => {
+        # Volume details
+        id                = vol.id
+        arn               = vol.arn
+        size              = vol.size
+        type              = vol.type
+        iops              = vol.iops
+        throughput        = vol.throughput
+        encrypted         = vol.encrypted
+        kms_key_id        = vol.kms_key_id
+        availability_zone = vol.availability_zone
+        multi_attach      = vol.multi_attach_enabled
+        
+        # Attachment details
+        attachment = {
+          device_name = aws_volume_attachment.this[vol_key].device_name
+          instance_id = aws_volume_attachment.this[vol_key].instance_id
+        }
+        
+        # Configuration source
+        source_config = var.ebs_volumes[split("-", vol_key)[0]]
+      }
+    }
+    
+    # Summary by instance
+    by_instance = {
+      for i in range(local.resolved_instance_count) : "${local.name_pattern}-${i + 1}" => [
+        for vol_key, vol in aws_ebs_volume.this : {
+          name        = vol_key
+          id          = vol.id
+          size        = vol.size
+          type        = vol.type
+          device_name = aws_volume_attachment.this[vol_key].device_name
+        } if can(regex("${i}$", vol_key))
+      ]
+    }
+  }
+}
+
+
+#################################
+# Connection Information
+#################################
 output "connection_info" {
   description = "SSH/RDP connection information for external tools (Ansible, etc.)"
   value = [
     for i in range(length(aws_instance.this)) : {
-      name = "${var.environment}-${var.company_name}-${var.project_name}-${i + 1}"
+      # Instance identification
+      name = "${local.name_pattern}-${i + 1}"
       id   = aws_instance.this[i].id
+      index = i
 
-      # Connection details
+      # Connection details with priority: EIP > Public IP > Private IP
       host = i < length(aws_eip.this) ? aws_eip.this[i].public_ip : (
         aws_instance.this[i].public_ip != null ? aws_instance.this[i].public_ip : aws_instance.this[i].private_ip
       )
-      private_ip = aws_instance.this[i].private_ip
-      key_name   = aws_instance.this[i].key_name
+      
+      # All available IPs
+      ips = {
+        private_ip = aws_instance.this[i].private_ip
+        public_ip  = aws_instance.this[i].public_ip
+        elastic_ip = i < length(aws_eip.this) ? aws_eip.this[i].public_ip : null
+      }
+      
+      # SSH/Connection details
+      connection = {
+        key_name = aws_instance.this[i].key_name
+        user     = can(regex("ubuntu", data.aws_ami.this[0].name)) ? "ubuntu" : "ec2-user"
+        port     = 22
+      }
+      
+      # Instance details for automation
+      instance_details = {
+        type              = aws_instance.this[i].instance_type
+        availability_zone = aws_instance.this[i].availability_zone
+        subnet_id        = aws_instance.this[i].subnet_id
+        environment      = var.environment
+      }
     }
   ]
 }
-
