@@ -156,18 +156,18 @@ output "ebs_volumes_info" {
         kms_key_id        = vol.kms_key_id
         availability_zone = vol.availability_zone
         multi_attach      = vol.multi_attach_enabled
-        
+
         # Attachment details
         attachment = {
           device_name = aws_volume_attachment.this[vol_key].device_name
           instance_id = aws_volume_attachment.this[vol_key].instance_id
         }
-        
+
         # Configuration source
         source_config = var.ebs_volumes[split("-", vol_key)[0]]
       }
     }
-    
+
     # Summary by instance
     by_instance = {
       for i in range(local.resolved_instance_count) : "${local.name_pattern}-${i + 1}" => [
@@ -192,36 +192,74 @@ output "connection_info" {
   value = [
     for i in range(length(aws_instance.this)) : {
       # Instance identification
-      name = "${local.name_pattern}-${i + 1}"
-      id   = aws_instance.this[i].id
+      name  = "${local.name_pattern}-${i + 1}"
+      id    = aws_instance.this[i].id
       index = i
 
       # Connection details with priority: EIP > Public IP > Private IP
       host = i < length(aws_eip.this) ? aws_eip.this[i].public_ip : (
         aws_instance.this[i].public_ip != null ? aws_instance.this[i].public_ip : aws_instance.this[i].private_ip
       )
-      
+
       # All available IPs
       ips = {
         private_ip = aws_instance.this[i].private_ip
         public_ip  = aws_instance.this[i].public_ip
         elastic_ip = i < length(aws_eip.this) ? aws_eip.this[i].public_ip : null
       }
-      
+
       # SSH/Connection details
       connection = {
         key_name = aws_instance.this[i].key_name
         user     = can(regex("ubuntu", data.aws_ami.this[0].name)) ? "ubuntu" : "ec2-user"
         port     = 22
       }
-      
+
       # Instance details for automation
       instance_details = {
         type              = aws_instance.this[i].instance_type
         availability_zone = aws_instance.this[i].availability_zone
-        subnet_id        = aws_instance.this[i].subnet_id
-        environment      = var.environment
+        subnet_id         = aws_instance.this[i].subnet_id
+        environment       = var.environment
       }
     }
   ]
+}
+
+#################################
+# Configuration Summary
+#################################
+output "configuration_summary" {
+  description = "Summary of the configuration applied"
+  value = {
+    # Environment configuration applied
+    environment_defaults = local.env_config
+
+    # Resolved configuration
+    resolved_config = {
+      instance_count         = local.resolved_instance_count
+      instance_type          = local.resolved_instance_type
+      monitoring             = local.resolved_monitoring
+      termination_protection = local.resolved_disable_api_termination
+      root_volume_size       = local.resolved_root_volume_size
+    }
+
+    # Resource counts
+    resource_counts = {
+      instances   = length(aws_instance.this)
+      ebs_volumes = length(aws_ebs_volume.this)
+      elastic_ips = length(aws_eip.this)
+      key_pairs   = length(aws_key_pair.this)
+    }
+
+    # Configuration sources
+    config_sources = {
+      ami_source      = var.ami_config.ami_id != null ? "specified" : "auto-discovered"
+      key_pair_source = var.key_pair_config.create_new ? "created" : "existing"
+    }
+
+    # Tags applied
+    common_tags            = var.tags
+    resource_specific_tags = var.additional_tags
+  }
 }
