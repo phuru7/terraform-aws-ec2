@@ -135,7 +135,6 @@ output "network_info" {
   }
 }
 
-
 #################################
 # EBS Volumes Information
 #################################
@@ -182,7 +181,6 @@ output "ebs_volumes_info" {
     }
   }
 }
-
 
 #################################
 # Connection Information

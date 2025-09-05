@@ -1,130 +1,322 @@
 # terraform-aws-ec2
 
-Módulo de Terraform para crear instancias EC2 con configuración flexible, volúmenes EBS adicionales, IPs elásticas y gestión de key pairs.
+Módulo Terraform para crear instancias EC2 con configuración por ambiente, volúmenes EBS flexibles, IPs elásticas y gestión automática de recursos.
+
+## Características
+
+- **Configuración por ambiente**: Valores predefinidos para `dev`, `qa`, `staging`, `prod`
+- **Distribución automática**: Instancias distribuidas entre múltiples subnets
+- **Volúmenes EBS flexibles**: Configuración granular con validaciones robustas
+- **IPs elásticas**: Asignación automática opcional
+- **Key pairs**: Creación nueva o uso de existentes
+- **Tags organizados**: Sistema de etiquetado por tipo de recurso
+- **Validaciones avanzadas**: Verificación de configuraciones antes del despliegue
 
 ## Arquitectura
 
-Este módulo crea:
-- Instancias EC2 con distribución automática en múltiples subnets
-- Volúmenes EBS adicionales con attachment automático
-- IPs elásticas configurables
-- Key pairs (nuevos o existentes)
-- Tags organizados por tipo de recurso
+```
+Environment → Instance Config → EC2 Instances
+    ↓              ↓               ↓
+Defaults    →  EBS Volumes  →  Auto Distribution
+    ↓              ↓               ↓
+Tags        →  Elastic IPs  →  Across Subnets
+```
 
 ## Requisitos
 
-- Terraform >= 1.0
-- AWS Provider >= 5.0
-- Credenciales AWS configuradas
-- VPC y subnets existentes
-- Security groups configurados
+- Terraform ≥ 1.1
+- AWS Provider ~> 6.0
+- VPC y subnets configurados
+- Security groups existentes
 
-## Uso
+## Uso Básico
 
 ```hcl
 module "app_servers" {
-  source = "./terraform-aws-ec2-compute"
+  source = "./terraform-aws-ec2"
   
   # Configuración base
-  project_name   = "mi-aplicacion"
   environment    = "prod"
-  company_name   = "mi-empresa"
+  company_name   = "acme"
+  project_name   = "webapp"
   
-  # Instancias
-  instance_count = 2
-  instance_type  = "t3.medium"
-  subnet_ids     = ["subnet-12345", "subnet-67890"]
-  security_group_ids = ["sg-abcdef"]
-  
-  # Key pair
-  key_pair_config = {
-    create_new = false
-    existing_key_name = "mi-key-existente"
+  # Red
+  network_config = {
+    subnet_ids         = ["subnet-12345", "subnet-67890"]
+    security_group_ids = ["sg-abcdef"]
+    eip_count          = 2
   }
   
-  # Storage adicional
-  ebs_block_devices = [
-    {
-      device_name = "/dev/sdf"
-      custom_name = "data"
-      volume_type = "gp3"
-      volume_size = 100
-      encrypted   = true
-    }
-  ]
-  
-  # IPs elásticas (opcional)
-  eip_count = 1
+  # Key pair existente
+  key_pair_config = {
+    create_new        = false
+    existing_key_name = "my-existing-key"
+  }
   
   tags = {
-    Owner       = "DevOps"
-    Environment = "production"
+    Owner = "DevOps"
+    Cost  = "Engineering"
   }
 }
 ```
 
-## Variables
+## Uso Avanzado
 
-| Variable | Tipo | Default | Descripción |
-|----------|------|---------|-------------|
-| project_name | string | - | Nombre del proyecto (obligatorio) |
-| environment | string | - | Ambiente (dev/qa/prod) (obligatorio) |
-| company_name | string | - | Nombre de la empresa (obligatorio) |
-| instance_count | number | - | Número de instancias EC2 a crear |
-| instance_type | string | t3.micro | Tipo de instancia EC2 |
-| subnet_ids | list(string) | - | Lista de subnet IDs donde crear las instancias |
-| security_group_ids | list(string) | - | Lista de security group IDs |
-| ami_id | string | null | AMI ID específico (usa filtros si es null) |
-| ami_owners | list(string) | ["099720109477"] | Propietarios de AMI para búsqueda |
-| key_pair_config | object | {} | Configuración de key pair (crear/usar existente) |
-| eip_count | number | 0 | Número de IPs elásticas (0 a instance_count) |
-| associate_public_ip_address | bool | false | Asignar IP pública automáticamente |
-| root_volume | object | {type="gp3", size=20, encrypted=true} | Configuración del volumen root |
-| ebs_block_devices | list(object) | [] | Lista de volúmenes EBS adicionales |
-| monitoring | bool | false | Habilitar monitoreo detallado |
-| disable_api_termination | bool | false | Protección contra terminación |
-| iam_instance_profile_name | string | null | Nombre del instance profile IAM |
-| user_data | string | null | Script de user data |
-| tags | map(string) | {} | Tags comunes para todos los recursos |
-| additional_tags | object | {} | Tags específicos por tipo de recurso |
-
-## Outputs
-
-| Output | Descripción |
-|--------|-------------|
-| instances_info | Información completa de todas las instancias |
-| network_info | Información de red (IPs públicas/privadas, DNS) |
-| connection_info | Información para conexión SSH/RDP |
-| eip_info | Información de IPs elásticas |
-| key_pair_info | Información del key pair usado |
-
-## Ejemplos
-
-Ver directorio `examples/` para casos de uso completos:
-- `examples/basic/` - Configuración básica con una instancia
-- `examples/multi-instance/` - Múltiples instancias con EBS
-- `examples/with-eips/` - Instancias con IPs elásticas
-
-## Deployment
-
-```bash
-# Inicializar
-terraform init
-
-# Planificar cambios
-terraform plan -var-file="terraform.tfvars"
-
-# Aplicar
-terraform apply -var-file="terraform.tfvars"
-
-# Destruir
-terraform destroy -var-file="terraform.tfvars"
+```hcl
+module "database_servers" {
+  source = "./terraform-aws-ec2"
+  
+  environment    = "prod"
+  company_name   = "acme"
+  project_name   = "database"
+  
+  # Override environment defaults
+  instance_config = {
+    instance_count  = 3
+    instance_type   = "r6i.xlarge"
+    monitoring      = true
+  }
+  
+  # Custom root volume configuration
+  root_volume = {
+    type = "gp3"
+    size = 200
+    iops = 10000
+  }
+  
+  # Additional EBS volumes
+  ebs_volumes = {
+    data = {
+      device_name      = "/dev/sdf"
+      volume_size      = 500
+      volume_type      = "gp3"
+      instance_indices = [0, 1, 2]
+      tags = {
+        Purpose = "Database Storage"
+      }
+    }
+    logs = {
+      device_name      = "/dev/sdg"
+      volume_size      = 100
+      instance_indices = [0, 1]
+    }
+  }
+  
+  network_config = {
+    subnet_ids                  = ["subnet-db1", "subnet-db2", "subnet-db3"]
+    security_group_ids          = ["sg-database"]
+    associate_public_ip_address = false
+    eip_count                   = 0
+  }
+  
+  tags = {
+    Environment = "production"
+    Service     = "database"
+    Backup      = "required"
+  }
+}
 ```
 
-## Notas Importantes
+## Environment Configurations
 
-- Las instancias se distribuyen automáticamente entre las subnets proporcionadas
-- El patrón de naming es: `{environment}-{company_name}-{project_name}-{number}`
-- Los volúmenes EBS se crean en la misma AZ que la instancia correspondiente
-- Las IPs elásticas se asignan secuencialmente a las primeras instancias
-- Todos los volúmenes se crean encriptados por defecto
+The module automatically applies optimized configurations per environment:
+
+| Environment | Instance Type | Monitoring | Termination Protection | Root Volume | Instance Count |
+|-------------|---------------|------------|----------------------|-------------|----------------|
+| `dev`       | t3.micro      | false      | false                | 30 GB       | 1              |
+| `qa`        | t3.small      | true       | false                | 40 GB       | 2              |
+| `staging`   | t3.medium     | true       | true                 | 50 GB       | 2              |
+| `prod`      | t3.large      | true       | true                 | 100 GB      | 3              |
+
+## Main Variables
+
+### Required
+```hcl
+environment    = "prod"           # dev, qa, staging, prod
+company_name   = "acme"           # Company name (lowercase)
+project_name   = "webapp"         # Project name (lowercase)
+
+network_config = {
+  subnet_ids         = ["subnet-xxx"]    # Minimum 1 subnet
+  security_group_ids = ["sg-xxx"]        # Minimum 1 security group
+}
+```
+
+### Main Optional
+```hcl
+instance_config = {
+  instance_count  = 2              # Override environment default
+  instance_type   = "t3.medium"    # Override environment default
+  monitoring      = true           # Override environment default
+}
+
+ami_config = {
+  ami_id = "ami-12345"            # If not specified, uses Ubuntu 24.04 LTS
+}
+
+ebs_volumes = {
+  volume_name = {
+    device_name = "/dev/sdf"
+    volume_size = 100
+  }
+}
+```
+
+## Useful Outputs
+
+```hcl
+# SSH connection information
+output "ssh_commands" {
+  value = [
+    for conn in module.app_servers.connection_info :
+    "ssh -i ~/.ssh/${conn.connection.key_name}.pem ${conn.connection.user}@${conn.host}"
+  ]
+}
+
+# IPs for load balancer
+output "instance_ips" {
+  value = module.app_servers.network_info.instances_network.private_ips
+}
+
+# Complete information for Ansible
+output "ansible_inventory" {
+  value = module.app_servers.connection_info
+}
+```
+
+## Examples
+
+### Web Application (3-Tier)
+```hcl
+# Frontend
+module "frontend" {
+  source = "./terraform-aws-ec2"
+  
+  environment  = "prod"
+  company_name = "acme"
+  project_name = "frontend"
+  
+  network_config = {
+    subnet_ids         = var.public_subnet_ids
+    security_group_ids = [aws_security_group.web.id]
+    eip_count          = 2
+  }
+}
+
+# Backend
+module "backend" {
+  source = "./terraform-aws-ec2"
+  
+  environment  = "prod"
+  company_name = "acme"
+  project_name = "backend"
+  
+  instance_config = {
+    instance_type = "c6i.large"
+  }
+  
+  network_config = {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.app.id]
+  }
+}
+```
+
+### Development with data volumes
+```hcl
+module "dev_environment" {
+  source = "./terraform-aws-ec2"
+  
+  environment  = "dev"
+  company_name = "acme"
+  project_name = "development"
+  
+  ebs_volumes = {
+    docker = {
+      device_name = "/dev/sdf"
+      volume_size = 50
+      tags = {
+        Purpose = "Docker Storage"
+      }
+    }
+  }
+  
+  key_pair_config = {
+    create_new = true
+    public_key = file("~/.ssh/dev-key.pub")
+  }
+}
+```
+
+## Naming Pattern
+
+All resources follow the pattern: `{environment}-{company_name}-{project_name}`
+
+**Examples:**
+- Instance: `prod-acme-webapp-1`
+- EBS Volume: `prod-acme-webapp-1-data`
+- Key Pair: `prod-acme-webapp-key`
+- EIP: `prod-acme-webapp-1-eip`
+
+## Validations
+
+The module includes automatic validations for:
+- Valid EC2 instance types
+- Volume configurations by type (IOPS, throughput)
+- Device name formats
+- Volume size ranges
+- Key pair configuration
+- Tags with valid characters
+
+## Deployment Commands
+
+```bash
+# Initialize
+terraform init
+
+# Plan
+terraform plan -var-file="environments/prod.tfvars"
+
+# Apply
+terraform apply -var-file="environments/prod.tfvars"
+
+# Destroy
+terraform destroy -var-file="environments/prod.tfvars"
+```
+
+## Tool Integration
+
+### Ansible
+```yaml
+# inventory.yml
+all:
+  hosts:
+    {% for instance in terraform_output.connection_info %}
+    {{ instance.name }}:
+      ansible_host: {{ instance.host }}
+      ansible_user: {{ instance.connection.user }}
+      ansible_ssh_private_key_file: ~/.ssh/{{ instance.connection.key_name }}.pem
+    {% endfor %}
+```
+
+### AWS Systems Manager
+```bash
+# Connect using Session Manager
+aws ssm start-session --target {{ instance_id }}
+```
+
+## Best Practices
+
+1. **Use tfvars files per environment**
+2. **Apply consistent tags for billing**
+3. **Enable monitoring in staging and prod**
+4. **Use encrypted volumes (default)**
+5. **Configure termination protection in prod**
+6. **Distribute instances across multiple AZs**
+
+## Limitations
+
+- Maximum 100 instances per deployment
+- EBS volumes up to 16TB
+- EIPs limited by AWS quota
+- Key pairs must exist previously if not created
