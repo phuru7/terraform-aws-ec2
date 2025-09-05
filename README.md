@@ -1,18 +1,18 @@
 # terraform-aws-ec2
 
-Módulo Terraform para crear instancias EC2 con configuración por ambiente, volúmenes EBS flexibles, IPs elásticas y gestión automática de recursos.
+Terraform module for creating EC2 instances with environment-based configuration, flexible EBS volumes, elastic IPs, and automatic resource management.
 
-## Características
+## Features
 
-- **Configuración por ambiente**: Valores predefinidos para `dev`, `qa`, `staging`, `prod`
-- **Distribución automática**: Instancias distribuidas entre múltiples subnets
-- **Volúmenes EBS flexibles**: Configuración granular con validaciones robustas
-- **IPs elásticas**: Asignación automática opcional
-- **Key pairs**: Creación nueva o uso de existentes
-- **Tags organizados**: Sistema de etiquetado por tipo de recurso
-- **Validaciones avanzadas**: Verificación de configuraciones antes del despliegue
+- **Environment-based configuration**: Predefined values for `dev`, `qa`, `staging`, `prod`
+- **Automatic distribution**: Instances distributed across multiple subnets
+- **Flexible EBS volumes**: Granular configuration with robust validations
+- **Elastic IPs**: Optional automatic assignment
+- **Key pairs**: Create new or use existing
+- **Organized tags**: Tagging system by resource type
+- **Advanced validations**: Configuration verification before deployment
 
-## Arquitectura
+## Architecture
 
 ```
 Environment → Instance Config → EC2 Instances
@@ -22,32 +22,32 @@ Defaults    →  EBS Volumes  →  Auto Distribution
 Tags        →  Elastic IPs  →  Across Subnets
 ```
 
-## Requisitos
+## Requirements
 
 - Terraform ≥ 1.1
 - AWS Provider ~> 6.0
-- VPC y subnets configurados
-- Security groups existentes
+- Configured VPC and subnets
+- Existing security groups
 
-## Uso Básico
+## Basic Usage
 
 ```hcl
 module "app_servers" {
   source = "./terraform-aws-ec2"
   
-  # Configuración base
+  # Base configuration
   environment    = "prod"
   company_name   = "acme"
   project_name   = "webapp"
   
-  # Red
+  # Network
   network_config = {
     subnet_ids         = ["subnet-12345", "subnet-67890"]
     security_group_ids = ["sg-abcdef"]
     eip_count          = 2
   }
   
-  # Key pair existente
+  # Existing key pair
   key_pair_config = {
     create_new        = false
     existing_key_name = "my-existing-key"
@@ -60,7 +60,7 @@ module "app_servers" {
 }
 ```
 
-## Uso Avanzado
+## Advanced Usage
 
 ```hcl
 module "database_servers" {
