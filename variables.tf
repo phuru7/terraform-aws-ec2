@@ -348,7 +348,7 @@ variable "tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
   default     = {}
-  
+
   validation {
     condition = alltrue([
       for key, value in var.tags : can(regex("^[a-zA-Z0-9_.:/=+\\-@]+$", key))
