@@ -324,6 +324,36 @@ variable "ebs_volumes" {
 #################################
 # Variables de Tags
 #################################
+variable "metadata_options" {
+  description = "Instance metadata options for security"
+  type = object({
+    http_endpoint               = optional(string, "enabled")
+    http_tokens                 = optional(string, "required") # force IMDSv2
+    http_put_response_hop_limit = optional(number, 2)          # 
+    instance_metadata_tags      = optional(string, "disabled")
+  })
+  default = {}
+
+  validation {
+    condition     = contains(["enabled", "disabled"], var.metadata_options.http_endpoint)
+    error_message = "http_endpoint must be either 'enabled' or 'disabled'."
+  }
+
+  validation {
+    condition     = contains(["optional", "required"], var.metadata_options.http_tokens)
+    error_message = "http_tokens must be either 'optional' or 'required'."
+  }
+
+  validation {
+    condition     = var.metadata_options.http_put_response_hop_limit >= 1 && var.metadata_options.http_put_response_hop_limit <= 64
+    error_message = "http_put_response_hop_limit must be between 1 and 64."
+  }
+}
+
+
+#################################
+# Variables de Tags
+#################################
 
 variable "tags" {
   description = "Common tags to apply to all resources"

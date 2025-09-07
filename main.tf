@@ -184,6 +184,13 @@ resource "aws_instance" "this" {
   user_data                   = var.instance_config.user_data
   user_data_replace_on_change = var.instance_config.user_data_replace_on_change
 
+  metadata_options {
+    http_endpoint               = var.metadata_options.http_endpoint
+    http_tokens                 = var.metadata_options.http_tokens
+    http_put_response_hop_limit = var.metadata_options.http_put_response_hop_limit
+    instance_metadata_tags      = var.metadata_options.instance_metadata_tags
+  }
+
   tags = merge(
     var.tags,
     var.additional_tags.instances,
