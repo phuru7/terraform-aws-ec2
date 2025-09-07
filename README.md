@@ -268,6 +268,135 @@ The module includes automatic validations for:
 - Key pair configuration
 - Tags with valid characters
 
+## Quick Reference Files
+
+### main.tf
+```hcl
+module "web_servers" {
+  source = "git::https://github.com/phuru7/terraform-aws-ec2.git"
+  
+  environment    = var.environment
+  company_name   = var.company_name
+  project_name   = var.project_name
+  
+  network_config = {
+    subnet_ids         = var.subnet_ids
+    security_group_ids = var.security_group_ids
+    eip_count          = var.eip_count
+  }
+  
+  key_pair_config = {
+    create_new        = false
+    existing_key_name = var.key_name
+  }
+  
+  tags = var.common_tags
+}
+```
+
+### variables.tf
+```hcl
+variable "environment" {
+  description = "Environment name"
+  type        = string
+}
+
+variable "company_name" {
+  description = "Company name"
+  type        = string
+}
+
+variable "project_name" {
+  description = "Project name"
+  type        = string
+}
+
+variable "subnet_ids" {
+  description = "List of subnet IDs"
+  type        = list(string)
+}
+
+variable "security_group_ids" {
+  description = "List of security group IDs"
+  type        = list(string)
+}
+
+variable "key_name" {
+  description = "EC2 Key Pair name"
+  type        = string
+}
+
+variable "eip_count" {
+  description = "Number of Elastic IPs"
+  type        = number
+  default     = 0
+}
+
+variable "common_tags" {
+  description = "Common tags"
+  type        = map(string)
+  default     = {}
+}
+```
+
+### outputs.tf
+```hcl
+output "instance_ids" {
+  description = "EC2 instance IDs"
+  value       = [for instance in module.web_servers.instances_info.instances : instance.id]
+}
+
+output "private_ips" {
+  description = "Private IP addresses"
+  value       = module.web_servers.network_info.instances_network.private_ips
+}
+
+output "public_ips" {
+  description = "Public IP addresses"
+  value       = module.web_servers.network_info.instances_network.public_ips
+}
+
+output "ssh_connection" {
+  description = "SSH connection strings"
+  value = [
+    for conn in module.web_servers.connection_info :
+    "ssh -i ~/.ssh/${conn.connection.key_name}.pem ${conn.connection.user}@${conn.host}"
+  ]
+}
+
+output "instance_names" {
+  description = "Instance names"
+  value = [for instance in module.web_servers.instances_info.instances : instance.name]
+}
+```
+
+### terraform.tfvars
+```hcl
+# Basic configuration
+environment    = "dev"
+company_name   = "acme"
+project_name   = "webapp"
+
+# Network
+subnet_ids         = ["subnet-12345678", "subnet-87654321"]
+security_group_ids = ["sg-abcdef123"]
+
+# Key pair
+key_name = "my-ec2-key"
+
+# Elastic IPs (optional)
+eip_count = 1
+
+# Tags
+common_tags = {
+  Owner       = "DevOps Team"
+  Environment = "development"
+  Project     = "Web Application"
+  CostCenter  = "Engineering"
+  Terraform   = "true"
+}
+```
+
 ## Deployment Commands
 
 ```bash
@@ -275,13 +404,13 @@ The module includes automatic validations for:
 terraform init
 
 # Plan
-terraform plan -var-file="environments/prod.tfvars"
+terraform plan -var-file="terraform.tfvars"
 
 # Apply
-terraform apply -var-file="environments/prod.tfvars"
+terraform apply -var-file="terraform.tfvars"
 
 # Destroy
-terraform destroy -var-file="environments/prod.tfvars"
+terraform destroy -var-file="terraform.tfvars"
 ```
 
 ## Best Practices
