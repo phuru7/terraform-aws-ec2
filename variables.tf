@@ -322,7 +322,7 @@ variable "ebs_volumes" {
 }
 
 #################################
-# Variables de Tags
+# IMDSv2 metadata
 #################################
 variable "metadata_options" {
   description = "Instance metadata options for security"
