@@ -1,9 +1,10 @@
 # terraform-aws-ec2
 
-Terraform module for creating EC2 instances with environment-based configuration, flexible EBS volumes, elastic IPs, and automatic resource management.
+Terraform module for creating EC2 instances with environment-based configuration, IMDSv2 security, flexible EBS volumes, elastic IPs, and automatic resource management.
 
 ## Features
 
+- **IMDSv2 Security**: Instance Metadata Service v2 enabled by default for SSRF protection
 - **Environment-based configuration**: Predefined values for `dev`, `qa`, `staging`, `prod`
 - **Automatic distribution**: Instances distributed across multiple subnets
 - **Flexible EBS volumes**: Granular configuration with robust validations
@@ -15,7 +16,7 @@ Terraform module for creating EC2 instances with environment-based configuration
 ## Architecture
 
 ```
-Environment → Instance Config → EC2 Instances
+Environment → Instance Config → EC2 Instances (IMDSv2)
     ↓              ↓               ↓
 Defaults    →  EBS Volumes  →  Auto Distribution
     ↓              ↓               ↓
@@ -53,9 +54,58 @@ module "app_servers" {
     existing_key_name = "my-existing-key"
   }
   
+  # Security: IMDSv2 enabled by default
+  metadata_options = {
+    http_tokens = "required"  # Forces IMDSv2
+  }
+  
   tags = {
     Owner = "DevOps"
     Cost  = "Engineering"
+  }
+}
+```
+
+## Security Configuration
+
+### IMDSv2 (Default)
+```hcl
+metadata_options = {
+  http_endpoint               = "enabled"   # Default
+  http_tokens                = "required"   # Forces IMDSv2 (Default)
+  http_put_response_hop_limit = 2           # For containers (Default)
+  instance_metadata_tags      = "disabled"  # Default
+}
+```
+
+### Custom Security Settings
+```hcl
+module "secure_servers" {
+  source = "./terraform-aws-ec2"
+  
+  environment    = "prod"
+  company_name   = "acme"
+  project_name   = "secure-app"
+  
+  # Override default IMDSv2 settings if needed
+  metadata_options = {
+    http_tokens                = "required"
+    http_put_response_hop_limit = 3  # For complex container setups
+  }
+  
+  # Encrypted storage (default)
+  root_volume = {
+    encrypted = true  # Default
+    type      = "gp3"
+    size      = 100
+  }
+  
+  ebs_volumes = {
+    data = {
+      device_name = "/dev/sdf"
+      volume_size = 500
+      encrypted   = true  # Default
+    }
   }
 }
 ```
@@ -142,6 +192,14 @@ network_config = {
 }
 ```
 
+### Security (Optional)
+```hcl
+metadata_options = {
+  http_tokens                = "required"  # Forces IMDSv2 (default)
+  http_put_response_hop_limit = 2          # Container support (default)
+}
+```
+
 ### Main Optional
 ```hcl
 instance_config = {
@@ -161,6 +219,22 @@ ebs_volumes = {
   }
 }
 ```
+
+## Security Features
+
+**Default Security Implementations:**
+- IMDSv2 required (prevents SSRF attacks)
+- EBS encryption enabled by default
+- Root volume encryption enabled
+- Security group restrictions (user-defined)
+- Instance termination protection (production environments)
+
+**Security Best Practices:**
+- Never disable IMDSv2 in production
+- Use encrypted volumes for sensitive data
+- Configure security groups with least privilege
+- Enable monitoring in staging/production
+- Regular security group audits
 
 ## Useful Outputs
 
@@ -266,6 +340,7 @@ The module includes automatic validations for:
 - Device name formats
 - Volume size ranges
 - Key pair configuration
+- IMDSv2 security requirements
 - Tags with valid characters
 
 ## Quick Reference Files
@@ -288,6 +363,11 @@ module "web_servers" {
   key_pair_config = {
     create_new        = false
     existing_key_name = var.key_name
+  }
+  
+  # IMDSv2 enabled by default
+  metadata_options = {
+    http_tokens = "required"
   }
   
   tags = var.common_tags
@@ -415,12 +495,27 @@ terraform destroy -var-file="terraform.tfvars"
 
 ## Best Practices
 
-1. **Use tfvars files per environment**
-2. **Apply consistent tags for billing**
-3. **Enable monitoring in staging and prod**
-4. **Use encrypted volumes (default)**
-5. **Configure termination protection in prod**
-6. **Distribute instances across multiple AZs**
+1. **Keep IMDSv2 enabled** (default behavior)
+2. **Use tfvars files per environment**
+3. **Apply consistent tags for billing**
+4. **Enable monitoring in staging and prod**
+5. **Use encrypted volumes** (default)
+6. **Configure termination protection in prod**
+7. **Distribute instances across multiple AZs**
+8. **Regular security audits**
+
+## Security Notes
+
+**IMDSv2 Protection:**
+- Prevents SSRF attacks on instance metadata
+- Required token-based authentication
+- Limited hop count for container environments
+- Enabled by default in this module
+
+**Encryption:**
+- All EBS volumes encrypted by default
+- Root volumes encrypted by default
+- Uses AWS-managed keys unless specified
 
 ## Limitations
 
@@ -428,3 +523,4 @@ terraform destroy -var-file="terraform.tfvars"
 - EBS volumes up to 16TB
 - EIPs limited by AWS quota
 - Key pairs must exist previously if not created
+- IMDSv2 required (cannot be disabled for security)
