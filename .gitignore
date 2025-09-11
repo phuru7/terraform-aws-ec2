@@ -6,7 +6,7 @@
 *.tfvars
 *.tfvars.json
 
-# Crash log files
+#Crash log files
 crash.log
 crash.*.log
 
