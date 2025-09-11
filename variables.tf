@@ -371,30 +371,3 @@ variable "additional_tags" {
   })
 }
 
-#################################
-# Tags with improved optional structure
-#################################
-variable "tags" {
-  description = "Common tags to apply to all resources"
-  type        = map(string)
-  default     = {}
-
-  validation {
-    condition = alltrue([
-      for key, value in var.tags : can(regex("^[a-zA-Z0-9_.:/=+\\-@]+$", key))
-    ])
-    error_message = "All tag keys must contain only alphanumeric characters, spaces, and the following characters: _ . : / = + - @"
-  }
-}
-
-variable "additional_tags" {
-  description = "Additional tags for specific resource types with optional structure"
-  type = object({
-    instances   = optional(map(string), {})
-    volumes     = optional(map(string), {})
-    root_volume = optional(map(string), {})
-    key_pairs   = optional(map(string), {})
-    eips        = optional(map(string), {})
-  })
-  default = {}
-}
