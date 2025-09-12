@@ -9,7 +9,7 @@ run "multi_instance_test" {
     network_config = {
       subnet_ids         = ["subnet-1", "subnet-2"]
       security_group_ids = ["sg-web"]
-      eip_count          = 4
+      eip_count          = 2
     }
     
     key_pair_config = {
